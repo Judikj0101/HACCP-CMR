@@ -5,7 +5,7 @@ const TEAM_ID = 'verifico_auditor';
 let supabase = null;
 let supabaseEnabled = false;
 
-if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+if (SUPABASE_URL !== 'https://kzzscdymubqabsgogqba.supabase.co' && SUPABASE_ANON_KEY !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6enNjZHltdWJxYWJzZ29ncWJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0MzI3NTIsImV4cCI6MjA4MDAwODc1Mn0._GQdjZHUeG7CYAsvaqOrKN0TvSFRBYIBxvmad5Vl6Pg') {
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     supabaseEnabled = true;
     updateSyncStatus('synced');
