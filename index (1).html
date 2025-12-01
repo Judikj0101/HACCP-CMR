@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation Builder</title>
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
+    <!-- Quill Rich Text Editor -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    
+    <!-- Local Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <h1>Documentation Builder</h1>
+            <p>Please log in to continue.</p>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="login()">Login</button>
+            <p class="login-error" id="loginError"></p>
+            <p class="login-info">Hint: Try 'admin'/'admin123' or 'editor'/'editor123'</p>
+        </div>
+    </div>
+
+    <!-- Main Application UI -->
+    <div class="app-container hidden" id="appContainer">
+        <header class="header">
+            <h1 id="appTitle">Documentation Builder</h1>
+            <div class="team-info">
+                <div class="team-badge">Verifico Auditor</div>
+                <div class="sync-status">
+                    <span class="sync-indicator" id="syncIndicator"></span>
+                    <span id="syncStatusText">Offline</span>
+                </div>
+                <div class="header-buttons">
+                    <button class="btn btn-secondary" onclick="saveProject()">Backup</button>
+                    <button class="btn btn-secondary" onclick="loadProject()">Restore</button>
+                    <button class="btn btn-secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </header>
+        
+        <div class="container">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-tabs">
+                    <div class="sidebar-tab active" id="tab-documents" onclick="switchTab('documents')">Documents</div>
+                    <div class="sidebar-tab" id="tab-blocks" onclick="switchTab('blocks')">Blocks</div>
+                    <div class="sidebar-tab" id="tab-clients" onclick="switchTab('clients')">Clients</div>
+                    <div class="sidebar-tab" id="tab-templates" onclick="switchTab('templates')">Templates</div>
+                </div>
+                
+                <!-- Documents Tab Content -->
+                <div class="sidebar-content active" id="content-documents">
+                    <div class="sidebar-header">
+                        <button class="new-document-btn" onclick="createNewDocument()">+ New Document</button>
+                        <h2>Your Documents</h2>
+                    </div>
+                    <div class="documents-list" id="documentsList">
+                        <!-- Document items will be rendered here -->
+                        <div class="empty-state" id="documentsEmptyState">
+                            <div class="empty-state-icon">📄</div>
+                            <p>No documents found. Click '+ New Document' to start.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Blocks Tab Content -->
+                <div class="sidebar-content" id="content-blocks">
+                    <div class="sidebar-header">
+                        <h2>Block Templates</h2>
+                        <button class="add-group-btn" onclick="addGroup()">+ Add New Group</button>
+                    </div>
+                    <div id="blockGroupsContainer">
+                        <!-- Block groups will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Clients Tab Content -->
+                <div class="sidebar-content" id="content-clients">
+                    <div class="sidebar-header">
+                        <button class="new-document-btn" onclick="editClient()">+ Add New Client</button>
+                        <h2>Client List</h2>
+                    </div>
+                    <div class="clients-list" id="clientsList">
+                        <!-- Client items will be rendered here -->
+                        <div class="empty-state" id="clientsEmptyState">
+                            <div class="empty-state-icon">👤</div>
+                            <p>No clients found. Add a new client to get started.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Templates Tab Content -->
+                <div class="sidebar-content" id="content-templates">
+                    <div class="sidebar-header">
+                        <h2>Document Templates</h2>
+                        <button class="new-document-btn" onclick="openTemplateModal()">Save Current as Template</button>
+                    </div>
+                    <div class="templates-list" id="templatesList">
+                        <!-- Template items will be rendered here -->
+                        <div class="empty-state" id="templatesEmptyState">
+                            <div class="empty-state-icon">📑</div>
+                            <p>No templates found. Save a document as a template.</p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            
+            <!-- Main Canvas -->
+            <main class="canvas">
+                <div class="document-controls">
+                    <div class="document-meta">
+                        <input type="text" id="documentTitle" placeholder="Document Title" oninput="triggerAutoSave()">
+                        <div class="document-client-select">
+                            <label for="clientSelect">Client:</label>
+                            <select id="clientSelect" onchange="updateDocumentClient(this.value)">
+                                <option value="">Select Client</option>
+                                <!-- Client options will be populated here -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="document-actions">
+                        <button class="btn btn-primary" onclick="exportToDocx()">Export to DOCX</button>
+                    </div>
+                </div>
+                
+                <!-- Formatting Toolbar (Removed - Quill is used in modal) -->
+                
+                <!-- Document Editor -->
+                <div class="document" id="document">
+                    <!-- Blocks will be dropped and edited here -->
+                    <div class="drop-zone">Drop block here</div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal-overlay" id="modalOverlay"></div>
+
+    <!-- Edit Block Template Modal -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <h3>Edit Block Template</h3>
+            <div class="block-editor">
+                <div>
+                    <div class="block-editor-label">Block Name</div>
+                    <input type="text" id="blockName" placeholder="Enter block name...">
+                </div>
+                
+                <div>
+                    <!-- Quill Toolbar will be injected here -->
+                
+                <div>
+                    <div class="block-editor-label">Content</div>
+                    <div id="blockEditorContainer">
+                        <!-- Quill Editor will be initialized here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+                <button class="save-modal-btn" onclick="saveTemplate()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Group Name Modal -->
+    <div class="modal" id="groupModal">
+        <div class="modal-content">
+            <h3>Edit Group Name</h3>
+            <input type="text" id="groupName" placeholder="Enter group name...">
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+                <button class="save-modal-btn" onclick="saveGroupName()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Modal -->
+    <div class="modal" id="clientModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <h3 id="clientModalTitle">Add New Client</h3>
+            <div class="client-form">
+                <div>
+                    <label>Company Name *</label>
+                    <input type="text" id="clientCompany" required>
+                </div>
+                <div>
+                    <label>Contact Person *</label>
+                    <input type="text" id="clientContact" required>
+                </div>
+                <div>
+                    <label>Email *</label>
+                    <input type="email" id="clientEmail" required>
+                </div>
+                <div>
+                    <label>Phone</label>
+                    <input type="tel" id="clientPhone">
+                </div>
+                <div class="client-form-full">
+                    <label>Address</label>
+                    <textarea id="clientAddress"></textarea>
+                </div>
+                <div>
+                    <label>City</label>
+                    <input type="text" id="clientCity">
+                </div>
+                <div>
+                    <label>Country</label>
+                    <input type="text" id="clientCountry">
+                </div>
+                <div>
+                    <label>Postal Code</label>
+                    <input type="text" id="clientPostal">
+                </div>
+                <div>
+                    <label>Tax ID / VAT</label>
+                    <input type="text" id="clientTax">
+                </div>
+                <div>
+                    <label>Industry</label>
+                    <input type="text" id="clientIndustry">
+                </div>
+                <div>
+                    <label>Website</label>
+                    <input type="url" id="clientWebsite">
+                </div>
+                <div class="client-form-full">
+                    <label>Notes</label>
+                    <textarea id="clientNotes"></textarea>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+                <button class="save-modal-btn" onclick="saveClient()">Save Client</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Modal -->
+    <div class="modal" id="templateModal">
+        <div class="modal-content">
+            <h3>Save as Template</h3>
+            <div>
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Template Name</label>
+                <input type="text" id="templateName" placeholder="Enter template name..." style="margin-bottom: 15px;">
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Description (optional)</label>
+                <textarea id="templateDesc" placeholder="Describe when to use this template..." style="min-height: 80px;"></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+                <button class="save-modal-btn" onclick="confirmSaveTemplate()">Save Template</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move Block Modal -->
+    <div class="modal" id="moveBlockModal">
+        <div class="modal-content">
+            <h3>Move Block to Group</h3>
+            <p>Select the target group for the block:</p>
+            <select id="targetGroupSelect"></select>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeMoveBlockModal()">Cancel</button>
+                <button class="save-modal-btn" onclick="confirmMoveBlock()">Move Block</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Local Script -->
+    <script src="app.js"></script>
+</body>
+</html>
