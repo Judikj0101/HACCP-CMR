@@ -27,6 +27,7 @@
             <input type="password" id="password" placeholder="Password">
             <button onclick="login()">Login</button>
             <p class="login-error" id="loginError"></p>
+            <p class="login-info">Hint: Try 'admin'/'admin123' or 'editor'/'editor123'</p>
         </div>
     </div>
 
@@ -56,6 +57,7 @@
                     <div class="sidebar-tab" id="tab-blocks" onclick="switchTab('blocks')">Blocks</div>
                     <div class="sidebar-tab" id="tab-clients" onclick="switchTab('clients')">Clients</div>
                     <div class="sidebar-tab" id="tab-templates" onclick="switchTab('templates')">Templates</div>
+                    <div class="sidebar-tab hidden" id="tab-admin" onclick="switchTab('admin')">Admin</div>
                 </div>
                 
                 <!-- Documents Tab Content -->
@@ -110,6 +112,20 @@
                         <div class="empty-state" id="templatesEmptyState">
                             <div class="empty-state-icon">📑</div>
                             <p>No templates found. Save a document as a template.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Admin Tab Content -->
+                <div class="sidebar-content" id="content-admin">
+                    <div class="sidebar-header">
+                        <h2>User Management</h2>
+                    </div>
+                    <div class="admin-list" id="userList">
+                        <!-- User items will be rendered here -->
+                        <div class="empty-state" id="usersEmptyState">
+                            <div class="empty-state-icon">👥</div>
+                            <p>Loading user list...</p>
                         </div>
                     </div>
                 </div>
