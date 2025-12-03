@@ -148,6 +148,10 @@ function switchTab(tabName) {
 }
 
 async function createNewDocument() {
+    if (!canEdit()) {
+        alert('Access Denied: Only Editor and Admin roles can create new documents.');
+        return;
+    }
     const docId = 'doc_' + Date.now();
     const newDoc = {
         id: docId, name: `Document ${Object.keys(documents).length + 1}`,
@@ -894,6 +898,10 @@ function loadClientsList() {
 }
 
 function editClient(clientId = null) {
+    if (!canEdit()) {
+        alert('Access Denied: Only Editor and Admin roles can add or edit clients.');
+        return;
+    }
     editingClientId = clientId;
     const modalTitle = document.getElementById('clientModalTitle');
     const client = clientId ? clients[clientId] : {};
@@ -1101,27 +1109,35 @@ async function logout() {
 }
 
 async function fetchUserRoleAndName(user) {
-    // NOTE: This is a placeholder. For a real app, you should fetch the user's
-    // role and name from a separate 'profiles' table or from user_metadata.
-    // For now, we'll use the email to determine a mock role.
-    const email = user.email || '';
-    let role = 'viewer';
-    let name = email.split('@')[0];
-
-    if (email.includes('admin')) {
-        role = 'admin';
-        name = 'Administrator';
-    } else if (email.includes('editor')) {
-        role = 'editor';
-        name = 'Editor User';
+    if (!supabaseEnabled) {
+        // Fallback for local mode (should not happen if logged in)
+        return { id: user.id, email: user.email, role: 'viewer', name: user.email.split('@')[0] };
     }
     
-    return {
-        id: user.id,
-        email: email,
-        role: role,
-        name: name
-    };
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('name, role')
+            .eq('id', user.id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'No rows found'
+
+        // If no profile found, use default viewer role and email as name
+        const role = data?.role || 'viewer';
+        const name = data?.name || user.email.split('@')[0];
+
+        return {
+            id: user.id,
+            email: user.email,
+            role: role,
+            name: name
+        };
+    } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // Return a safe default on error
+        return { id: user.id, email: user.email, role: 'viewer', name: user.email.split('@')[0] };
+    }
 }
 
 async function handleAuthChange(session, user) {
@@ -1138,6 +1154,10 @@ async function handleAuthChange(session, user) {
         document.getElementById('appContainer').classList.add('hidden');
         document.getElementById('loginScreen').classList.remove('hidden');
     }
+}
+
+function canEdit() {
+    return currentUser && (currentUser.role === 'editor' || currentUser.role === 'admin');
 }
 
 function updateUIForRole() {
@@ -1160,18 +1180,110 @@ function updateUIForRole() {
     teamInfo.insertBefore(document.createRange().createContextualFragment(userInfoHtml), teamInfo.firstChild);
 
     // Disable/Enable elements based on role
-    const isViewer = role === 'viewer';
-    const isEditor = role === 'editor' || role === 'admin';
+    const canUserEdit = canEdit();
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    
+    // Admin Tab Visibility
+    const adminTab = document.getElementById('tab-admin');
+    if (adminTab) {
+        adminTab.classList.toggle('hidden', !isAdmin);
+        if (isAdmin) {
+            loadUserList(); // Load the user list when the admin tab is visible
+        }
+    }
     
     // Document actions
-    document.querySelectorAll('.document-actions button').forEach(btn => btn.disabled = isViewer);
+    document.querySelectorAll('.document-actions button').forEach(btn => btn.disabled = !canUserEdit);
     
     // Sidebar buttons
-    document.querySelectorAll('.new-document-btn').forEach(btn => btn.disabled = isViewer);
-    document.querySelectorAll('.add-group-btn').forEach(btn => btn.disabled = isViewer);
+    // The 'Save Current as Template' button is a 'new-document-btn'
+    document.querySelectorAll('.new-document-btn').forEach(btn => btn.disabled = !canUserEdit);
+    document.querySelectorAll('.add-group-btn').forEach(btn => btn.disabled = !canUserEdit);
     
     // Content editable
-    document.querySelectorAll('.doc-block .block-content').forEach(content => content.contentEditable = isEditor);
+    document.querySelectorAll('.doc-block .block-content').forEach(content => content.contentEditable = canUserEdit);
+}
+
+// --- Admin Management Functions ---
+
+async function loadUserList() {
+    if (!currentUser || currentUser.role !== 'admin') return;
+
+    const userListContainer = document.getElementById('userList');
+    const emptyState = document.getElementById('usersEmptyState');
+    userListContainer.innerHTML = '';
+    emptyState.style.display = 'block';
+    emptyState.querySelector('p').textContent = 'Loading user list...';
+
+    try {
+        // Fetch all profiles
+        const { data: profiles, error } = await supabase
+            .from('profiles')
+            .select('id, name, role, created_at');
+
+        if (error) throw error;
+
+        if (profiles.length === 0) {
+            emptyState.querySelector('p').textContent = 'No users found.';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+        
+        profiles.forEach(profile => {
+            const userItem = document.createElement('div');
+            userItem.className = 'user-item';
+            userItem.innerHTML = `
+                <div class="user-item-info">
+                    <div class="user-item-name">${profile.name || 'N/A'}</div>
+                    <div class="user-item-id">${profile.id}</div>
+                </div>
+                <div class="user-item-role">
+                    <select onchange="updateUserRole('${profile.id}', this.value)">
+                        <option value="admin" ${profile.role === 'admin' ? 'selected' : ''}>Admin</option>
+                        <option value="editor" ${profile.role === 'editor' ? 'selected' : ''}>Editor</option>
+                        <option value="viewer" ${profile.role === 'viewer' ? 'selected' : ''}>Viewer</option>
+                    </select>
+                </div>
+            `;
+            userListContainer.appendChild(userItem);
+        });
+
+    } catch (error) {
+        console.error('Error loading user list:', error);
+        emptyState.querySelector('p').textContent = 'Error loading user list.';
+    }
+}
+
+async function updateUserRole(userId, newRole) {
+    if (!currentUser || currentUser.role !== 'admin') {
+        alert('Permission Denied: Only Admin can change user roles.');
+        return;
+    }
+
+    if (userId === currentUser.id && newRole !== 'admin') {
+        if (!confirm('Warning: You are about to demote yourself. Are you sure you want to continue? You may lose access to this admin panel.')) {
+            // Revert the select box change
+            loadUserList(); 
+            return;
+        }
+    }
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ role: newRole })
+            .eq('id', userId);
+
+        if (error) throw error;
+
+        alert(`Role for user ${userId} updated to ${newRole}.`);
+        loadUserList(); // Refresh the list
+    } catch (error) {
+        console.error('Error updating user role:', error);
+        alert('Failed to update user role. Check console for details.');
+        loadUserList(); // Revert the list on failure
+    }
 }
 
 // --- Initialization ---
