@@ -764,3 +764,61 @@ body {
     border-color: var(--primary);
     background: var(--gray-50);
 }
+
+/* --- Admin UI Styles --- */
+
+.admin-list {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.user-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    background: var(--gray-50);
+    transition: all 0.2s;
+}
+
+.user-item:hover {
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.user-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.user-item-name {
+    font-weight: 600;
+    color: var(--gray-800);
+    font-size: 15px;
+}
+
+.user-item-id {
+    font-size: 11px;
+    color: var(--gray-500);
+    font-family: monospace;
+}
+
+.user-item-role select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--gray-300);
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.user-item-role select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
