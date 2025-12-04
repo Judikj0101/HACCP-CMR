@@ -822,3 +822,41 @@ body {
     outline: none;
     border-color: var(--primary);
 }
+
+/* SortableJS Handle Style */
+.block-handle {
+    position: absolute;
+    top: 50%;
+    left: -20px;
+    transform: translateY(-50%);
+    cursor: grab;
+    color: var(--gray-400);
+    font-size: 18px;
+    line-height: 1;
+    padding: 5px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.doc-block:hover .block-handle {
+    opacity: 1;
+}
+
+/* SortableJS Ghost Style */
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: var(--gray-100);
+    border: 2px dashed var(--primary);
+}
+
+/* Remove old drag-and-drop classes */
+.doc-block.dragging {
+    opacity: 0.5;
+}
+
+.doc-block.drag-over-before,
+.doc-block.drag-over-after,
+.drop-zone.drag-over-before,
+.drop-zone.drag-over-after {
+    /* These styles are no longer needed with SortableJS */
+}
