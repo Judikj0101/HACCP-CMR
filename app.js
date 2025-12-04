@@ -203,16 +203,20 @@ async function loadDocument(docId) {
     doc.content.forEach(contentHtml => {
         const block = document.createElement('div');
         block.className = 'doc-block';
-        block.draggable = true;
-        block.innerHTML = `<div class="block-controls"><button onclick="removeBlock(this)">Delete</button></div><div class="block-content" contenteditable="true">${contentHtml}</div>`;
+        block.innerHTML = `
+            <div class="block-handle">::</div>
+            <div class="block-controls">
+                <button onclick="removeBlock(this)">Delete</button>
+            </div>
+            <div class="block-content" contenteditable="true">${contentHtml}</div>
+        `;
         docElement.appendChild(block);
         
         // Re-attach event listeners for image upload areas
         const uploadAreas = block.querySelectorAll('.image-upload-area');
         uploadAreas.forEach(area => area.contentEditable = false);
         
-        block.addEventListener('dragstart', () => { draggedElement = block; block.classList.add('dragging'); });
-        block.addEventListener('dragend', () => { block.classList.remove('dragging'); draggedElement = null; });
+        // Old drag-and-drop event listeners are removed, SortableJS will handle it.
     });
     
     // Add final drop zone
@@ -1312,62 +1316,23 @@ window.addEventListener('load', async () => {
     }
 });
 
-// Drag and drop for reordering blocks in the document
+// --- SortableJS Initialization for Block Reordering ---
 const docElement = document.getElementById('document');
-if (docElement) {
-    docElement.addEventListener('dragstart', (e) => {
-        if (e.target.classList.contains('doc-block')) {
-            draggedElement = e.target;
-            e.target.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-        }
-    });
-
-    docElement.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const target = e.target.closest('.doc-block') || e.target.closest('.drop-zone');
-        if (target && target !== draggedElement) {
-            const rect = target.getBoundingClientRect();
-            const isBefore = e.clientY < rect.top + rect.height / 2;
-            
-            // Remove all drag-over classes
-            document.querySelectorAll('.doc-block').forEach(b => b.classList.remove('drag-over-before', 'drag-over-after'));
-            document.querySelectorAll('.drop-zone').forEach(d => d.classList.remove('drag-over-before', 'drag-over-after'));
-
-            if (target.classList.contains('doc-block')) {
-                target.classList.add(isBefore ? 'drag-over-before' : 'drag-over-after');
-            } else if (target.classList.contains('drop-zone')) {
-                target.classList.add('drag-over-after');
-            }
-        }
-    });
-
-    docElement.addEventListener('dragleave', (e) => {
-        e.target.classList.remove('drag-over-before', 'drag-over-after');
-    });
-
-    docElement.addEventListener('drop', (e) => {
-        e.preventDefault();
-        
-        // Clear drag-over classes
-        document.querySelectorAll('.doc-block').forEach(b => b.classList.remove('drag-over-before', 'drag-over-after'));
-        document.querySelectorAll('.drop-zone').forEach(d => d.classList.remove('drag-over-before', 'drag-over-after'));
-
-        if (draggedElement) {
-            const target = e.target.closest('.doc-block') || e.target.closest('.drop-zone');
-            if (target && target !== draggedElement) {
-                const rect = target.getBoundingClientRect();
-                const isBefore = e.clientY < rect.top + rect.height / 2;
-
-                if (target.classList.contains('doc-block')) {
-                    docElement.insertBefore(draggedElement, isBefore ? target : target.nextSibling);
-                } else if (target.classList.contains('drop-zone')) {
-                    docElement.insertBefore(draggedElement, target);
-                }
-                triggerAutoSave();
-            }
-            draggedElement.classList.remove('dragging');
-            draggedElement = null;
+if (docElement && typeof Sortable !== 'undefined') {
+    new Sortable(docElement, {
+        animation: 150,
+        handle: '.block-handle', // Assuming you will add a handle element to doc-block
+        draggable: '.doc-block',
+        filter: '.drop-zone', // Prevent dragging the drop zone itself
+        onEnd: function (evt) {
+            // Reordering is done by SortableJS, just trigger a save
+            triggerAutoSave();
         }
     });
 }
+
+// NOTE: The old custom drag-and-drop logic has been removed.
+// You will need to add a small handle element to the .doc-block HTML 
+// for a better user experience with SortableJS.
+// Example: <div class="block-handle">::</div>
+// This is a minimal implementation to replace the core functionality.
